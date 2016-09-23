@@ -6,9 +6,9 @@ import time
 cc_map = [  
     'red',  
     'darkblue',  
-    'darkcyan',  
+    'darkcyan',
+    'darkred',    
     'black',  
-    'darkred',  
     'darkmagenta',  
     'brown', #dark yellow  
     'blue',  
@@ -134,11 +134,11 @@ def CombineSubGraph(graph,colors):
     return subG
 
 #Used to change the tradeoff metric for select the best placement based on the tradeoff
-def tradeoff_function(avglat,avg_weight,maxlat,max_weight):
-    return avg_weight*avglat+max_weight*maxlat
+def tradeoff_function(avglat,avg_weight,maxlat,max_weight,interlat,inter_weight):
+    return avg_weight*avglat+max_weight*maxlat+interlat*inter_weight
 
 #For worst case latecy
-def Bestplacement(graph, colors,avg_weight,max_weight):
+def Bestplacement(graph, colors,avg_weight,max_weight,inter_weight):
     subG = subGraph(graph,colors)              
 
     controllers = []
@@ -147,14 +147,17 @@ def Bestplacement(graph, colors,avg_weight,max_weight):
         mintl = -1
         for node in subg:
             lenghts = nx.single_source_shortest_path_length(subg,node)
-
+            lenghts_graph = nx.single_source_shortest_path_length(graph,node)
             mx = -1
             ag = 0.0
+            wg = 0.0
             for l in lenghts:
                 if lenghts[l]>mx:
                     mx = lenghts[l]
                 ag += lenghts[l]
-            tl = tradeoff_function(ag/nx.number_of_nodes(subg),avg_weight,mx,max_weight)
+            for l in lenghts_graph:
+                wg += lenghts_graph[l]
+            tl = tradeoff_function(ag/nx.number_of_nodes(subg),avg_weight,mx,max_weight,wg/nx.number_of_nodes(graph),inter_weight)
             #tl = avg_weight*(ag/nx.number_of_nodes(subg))+max_weight*mx
             if mintl < 0:
                 mintl = tl
@@ -165,7 +168,7 @@ def Bestplacement(graph, colors,avg_weight,max_weight):
         controllers.append(controllerplace)
     return controllers
 
-def Find_Controller_Placement(graph_name,avg_weight=1.0,max_weight=0.0):    
+def Find_Controller_Placement(graph_name,avg_weight=1.0,max_weight=0.0,inter_weight=0.0):    
     
     g_name = graph_name
     G = Read(g_name)
@@ -203,10 +206,12 @@ def Find_Controller_Placement(graph_name,avg_weight=1.0,max_weight=0.0):
                 indexbelnode = G.nodes().index(belongs[G.nodes()[indexbelnode]])
             colors[indexcurnode] = colors[indexbelnode]
 
-    controllerlist = Bestplacement(G,colors,avg_weight,max_weight)
+    #controllerlist = BestAvgplacement(G,colors)
+    controllerlist = Bestplacement(G,colors,avg_weight,max_weight,inter_weight)
 
     shapes = [200 for i in xrange(numofnodes)]
     for controller in controllerlist:
         shapes[G.nodes().index(controller)]=1000
-    print "total time consumption: %f s" % (end - start)
+    #print "total time consumption: %f s" % (end - start)
     Draw_Graph(G,colors,shapes)
+    return controllerlist
